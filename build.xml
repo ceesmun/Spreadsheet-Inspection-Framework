@@ -50,11 +50,6 @@
 				<exclude name="**/*.java" />
 			</fileset>
 		</copy>
-		
-		<copy includeemptydirs="false" todir="bin/resources">
-					<fileset dir="resources">
-					</fileset>
-				</copy>
 
 		<copy includeemptydirs="false" todir="${dist.dir}/libs">
 			<fileset dir="libs">
@@ -66,7 +61,6 @@
 		<delete dir="bin" />
 		<delete dir="jar" />
 		<delete dir="${release.dir}" />
-		<delete dir="${dist.dir}" />
 	</target>
 
 
@@ -133,7 +127,220 @@
 		</junit>
 	</target>
 	
-	<target name="build-release" depends="build">
+	<target name="onejar-check">
+		<echo message="Checking if fat jar is already available or outdated..." />
+		<condition property="sif_fat.rebuild_needed">
+			<or>
+				<not>
+					<available file="${dist.dir}/sif_fat.jar" />
+				</not>
+				<not>
+				<uptodate targetfile="${dist.dir}/sif_fat.jar">
+					 <srcfiles dir="." includes="**/*.java"/>
+				</uptodate>
+				</not>
+			</or>
+		</condition>
+	</target>
+	
+	<target name="multijar-check">
+		<echo message="Checking if jar is already available or outdated..." />
+		<condition property="sif.rebuild_needed">
+			<or>
+				<not>
+					<available file="${dist.dir}/sif.jar" />
+				</not>
+				<not>
+				<uptodate targetfile="${dist.dir}/sif.jar">
+					 <srcfiles dir="." includes="**/*.java"/>
+				</uptodate>
+				</not>
+			</or>
+		</condition>
+	</target>
+	
+	<target name="onejar-rebuild_needed" if="sif_fat.rebuild_needed" depends="onejar-check">
+		<echo message="Fat jar not present or outdated, rebuilding..." />
+		<antcall target="build"/>
+		<unzip dest="${rebuild.dir}">
+			<fileset dir="${dist.dir}">
+				<include name="sif.jar"/>
+				<include name="libs/*.jar"/>
+			</fileset>
+		</unzip>
+		<jar basedir="${rebuild.dir}"
+		     destfile="${dist.dir}/sif_fat.jar">
+			<manifest>
+				<attribute name="Main-Class" value="sif.main.Application" />
+				<attribute name="Class-Path" value="${lib.list}" />
+			</manifest>
+			
+		</jar>
+		<delete dir="${rebuild.dir}"/>
+	</target>
+	
+	<target name="multijar-rebuild_needed" if="sif.rebuild_needed" depends="multijar-check">
+		<echo message="Jar not present or outdated, rebuilding..." />
+		<antcall target="build"/>
+	</target>
+	
+			
+	<target name="ikvm-2-x86-multijar" depends="multijar-rebuild_needed">
+		<echo message="Converting for .NET 2.0 32-Bit CLR..." />
+		
+		<apply executable="ikvmc" parallel="false" dir="${dist.dir}\libs\" force="true">
+			<fileset dir="${dist.dir}\libs" includes="*.jar" />
+			<arg value="-nostdlib"/>
+			<arg value="-target:library"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework\v2.0.50727\mscorlib.dll"/>
+		</apply>	
+		<mkdir dir="${dist.dir}/ikvm-2-x86-multijar"/>
+		<move todir="${dist.dir}/ikvm-2-x86-multijar">
+			<fileset dir="${dist.dir}/libs">
+				<include name="**/*.dll"/>
+			</fileset>
+		</move>
+		<fileset id="appendDlls" dir="${dist.dir}/ikvm-2-x86-multijar">
+			<include name="*.dll" />
+		</fileset>
+		<pathconvert property="prependDlls" refid="appendDlls" pathsep=" -r:"/>
+		
+		<exec executable="ikvmc">
+			<arg value="-nostdlib"/>
+			<arg value="${dist.dir}\sif.jar"/>
+			<arg value="-out:${dist.dir}\ikvm-2-x86-multijar\sif.exe"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework\v2.0.50727\mscorlib.dll"/>
+			<arg line="-r:${prependDlls}"/>
+		</exec>
+	</target>
+	<target name="ikvm-2-x64-multijar" depends="multijar-rebuild_needed">
+		<echo message="Converting for .NET 2.0 64-Bit CLR..." />
+		
+		<apply executable="ikvmc" parallel="false" dir="${dist.dir}\libs\" force="true">
+			<fileset dir="${dist.dir}\libs" includes="*.jar" />
+			<arg value="-nostdlib"/>
+			<arg value="-target:library"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework64\v2.0.50727\mscorlib.dll"/>
+		</apply>	
+		<mkdir dir="${dist.dir}/ikvm-2-x64-multijar"/>
+		<move todir="${dist.dir}/ikvm-2-x64-multijar">
+			<fileset dir="${dist.dir}/libs">
+				<include name="**/*.dll"/>
+			</fileset>
+		</move>
+		<fileset id="appendDlls" dir="${dist.dir}/ikvm-2-x64-multijar">
+			<include name="*.dll" />
+		</fileset>
+		<pathconvert property="prependDlls" refid="appendDlls" pathsep=" -r:"/>
+		
+		<exec executable="ikvmc">
+			<arg value="-nostdlib"/>
+			<arg value="${dist.dir}\sif.jar"/>
+			<arg value="-out:${dist.dir}\ikvm-2-x64-multijar\sif.exe"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework64\v2.0.50727\mscorlib.dll"/>
+			<arg line="-r:${prependDlls}"/>
+		</exec>
+	</target>
+	<target name="ikvm-4-x86-multijar" depends="multijar-rebuild_needed">
+		<echo message="Converting for .NET 4.0 32-Bit CLR..." />
+		
+		<apply executable="ikvmc" parallel="false" dir="${dist.dir}\libs\" force="true">
+			<fileset dir="${dist.dir}\libs" includes="*.jar" />
+			<arg value="-nostdlib"/>
+			<arg value="-target:library"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll"/>
+		</apply>	
+		<mkdir dir="${dist.dir}/ikvm-4-x86-multijar"/>
+		<move todir="${dist.dir}/ikvm-4-x86-multijar">
+			<fileset dir="${dist.dir}/libs">
+				<include name="**/*.dll"/>
+			</fileset>
+		</move>
+		<fileset id="appendDlls" dir="${dist.dir}/ikvm-4-x86-multijar">
+			<include name="*.dll" />
+		</fileset>
+		<pathconvert property="prependDlls" refid="appendDlls" pathsep=" -r:"/>
+		
+		<exec executable="ikvmc">
+			<arg value="-nostdlib"/>
+			<arg value="${dist.dir}\sif.jar"/>
+			<arg value="-out:${dist.dir}\ikvm-4-x86-multijar\sif.exe"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll"/>
+			<arg line="-r:${prependDlls}"/>
+		</exec>
+	</target>
+	<target name="ikvm-4-x64-multijar" depends="multijar-rebuild_needed">
+		<echo message="Converting for .NET 4.0 64-Bit CLR..." />
+		
+		<apply executable="ikvmc" parallel="false" dir="${dist.dir}\libs\" force="true">
+			<fileset dir="${dist.dir}\libs" includes="*.jar" />
+			<arg value="-nostdlib"/>
+			<arg value="-target:library"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\mscorlib.dll"/>
+		</apply>	
+		<mkdir dir="${dist.dir}/ikvm-4-x64-multijar"/>
+		<move todir="${dist.dir}/ikvm-4-x64-multijar">
+			<fileset dir="${dist.dir}/libs">
+				<include name="**/*.dll"/>
+			</fileset>
+		</move>
+		<fileset id="appendDlls" dir="${dist.dir}/ikvm-4-x64-multijar">
+			<include name="*.dll" />
+		</fileset>
+		<pathconvert property="prependDlls" refid="appendDlls" pathsep=" -r:"/>
+		
+		<exec executable="ikvmc">
+			<arg value="-nostdlib"/>
+			<arg value="${dist.dir}\sif.jar"/>
+			<arg value="-out:${dist.dir}\ikvm-4-x64-multijar\sif.exe"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\mscorlib.dll"/>
+			<arg line="-r:${prependDlls}"/>
+		</exec>
+	</target>
+	
+	<target name="ikvm-2-x86-onejar" depends="onejar-rebuild_needed">
+		<echo message="Converting for .NET 2.0 86-Bit CLR..." />
+		
+			<exec executable="ikvmc" dir="${dist.dir}">
+				<arg value="-nostdlib"/>
+				<arg value="sif_fat.jar"/>
+				<arg value="-out:sif_fat_2_x86.exe"/>
+				<arg value="-r:C:\Windows\Microsoft.NET\Framework\v2.0.50727\mscorlib.dll"/>
+			</exec>			
+	</target>
+	<target name="ikvm-2-x64-onejar" depends="onejar-rebuild_needed">
+		<echo message="Converting for .NET 2.0 64-Bit CLR..." />
+			
+		<exec executable="ikvmc" dir="${dist.dir}">
+			<arg value="-nostdlib"/>
+			<arg value="sif_fat.jar"/>
+			<arg value="-out:sif_fat_2_x64.exe"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework64\v2.0.50727\mscorlib.dll"/>
+		</exec>
+	</target>
+	<target name="ikvm-4-x86-onejar" depends="onejar-rebuild_needed">
+		<echo message="Converting for .NET 4.0 32-Bit CLR..." />
+		<exec executable="ikvmc" dir="${dist.dir}">
+			<arg value="-nostdlib"/>
+			<arg value="sif_fat.jar"/>
+			<arg value="-out:sif_fat_4_x86.exe"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll"/>
+		</exec>
+	</target>
+	<target name="ikvm-4-x64-onejar" depends="onejar-rebuild_needed">
+		<echo message="Converting for .NET 4.0 64-Bit CLR..." />
+		<exec executable="ikvmc" dir="${dist.dir}">
+			<arg value="-nostdlib"/>
+			<arg value="sif_fat.jar"/>
+			<arg value="-out:sif_fat_4_x64.exe"/>
+			<arg value="-r:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\mscorlib.dll"/>
+		</exec>
+	</target>
+	
+	<target name="all_onejars" depends="ikvm-2-x86-onejar,ikvm-2-x64-onejar,ikvm-4-x86-onejar,ikvm-4-x64-onejar"/>
+	<target name="all_multijars" depends="ikvm-2-x86-multijar,ikvm-2-x64-multijar,ikvm-4-x86-multijar,ikvm-4-x64-multijar"/>
+
+<target name="build-release" depends="build">
 	  <mkdir dir="${release.dir}" />
 	  <mkdir dir="${release.dir}/${release.subdir}" />
 	  <copy todir="${release.dir}/${release.subdir}">
@@ -143,8 +350,6 @@
 	    <fileset file="${license.file}"/>
 	  </copy>
 	  
-	  
-
 	  <echo file="${release.dir}/README.txt" append="false">This archive contains a binary distribution of the Spreadsheet Inspection Framework.
 
 Visit our homepage for more details and source code: http://www.spreadsheet-inspection.org
@@ -157,6 +362,4 @@ The binaries contained in this archive are made available under the terms of the
 	  
 	</target>
 	
-
-
 </project>
